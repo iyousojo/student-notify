@@ -9,7 +9,17 @@ import Form from "../../components/Form/Form";
 import { NavButton, MobileNavButton, QuickLink } from '../../components/Navigation';
 import axios from 'axios';
 
-axios.defaults.baseURL = 'https://student-notification-system-1.onrender.com';
+// Create a dedicated Axios instance for better header management on Vercel
+const API = axios.create({
+  baseURL: 'https://student-notification-system-1.onrender.com',
+});
+
+// Auto-inject token into every request
+API.interceptors.request.use((config) => {
+  const token = localStorage.getItem('token');
+  if (token) config.headers.Authorization = `Bearer ${token}`;
+  return config;
+});
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -18,40 +28,39 @@ const Dashboard = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [showMobileSearch, setShowMobileSearch] = useState(false);
   const [isFormOpen, setIsFormOpen] = useState(false);
-  const [user, setUser] = useState({ name: 'Student', department: '', faculty: '', role: 'Student', profilePic: '' });
+  // Start with null to prevent the UI from "flickering" with default 'Student' data
+  const [user, setUser] = useState(null); 
   
   const lastCheckRef = useRef(new Date().toISOString());
 
-  const canCreate = ["FacultyAdmin", "DepartmentAdmin", "SuperAdmin"].includes(user.role);
+  const handleLogout = useCallback(() => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    navigate('/login');
+  }, [navigate]);
 
   // --- REFINED FILTER LOGIC ---
-  const filterNotification = useCallback((item) => {
-    // 1. Always show Global/Official updates
+  const filterNotification = useCallback((item, currentUser) => {
+    if (!currentUser) return false;
     if (item.target?.role === 'All' || item.isGlobal) return true;
+    if (currentUser.role === 'SuperAdmin') return true;
 
-    // 2. Strict Department Match (Highest priority for students)
     if (item.target?.department) {
-      return item.target.department === user?.department;
+      return item.target.department === currentUser.department;
     }
-
-    // 3. Strict Faculty Match (If no specific department is targeted)
     if (item.target?.faculty) {
-      return item.target.faculty === user?.faculty;
+      return item.target.faculty === currentUser.faculty;
     }
-
-    // 4. Default to false if it doesn't match the user's academic scope
     return false;
-  }, [user.department, user.faculty]);
+  }, []);
 
   const fetchFeed = useCallback(async () => {
+    if (!user) return; // Wait for user profile to exist
     try {
       setLoading(true);
-      const token = localStorage.getItem('token');
-      const headers = { Authorization: `Bearer ${token}` };
-
       const [notifRes, bookmarkRes] = await Promise.all([
-        axios.get(`/api/notifications`, { headers }),
-        axios.get(`/api/bookmarks`, { headers })
+        API.get(`/api/notifications`),
+        API.get(`/api/bookmarks`)
       ]);
 
       const allNotifs = notifRes.data.data || notifRes.data || [];
@@ -59,7 +68,7 @@ const Dashboard = () => {
       const bookmarkedIds = new Set(userBookmarks.map(b => b.itemId?._id || b.itemId));
 
       const processedItems = allNotifs
-        .filter(filterNotification) // Apply academic scoping
+        .filter(item => filterNotification(item, user))
         .map(item => ({
           ...item,
           isBookmarked: bookmarkedIds.has(item._id)
@@ -73,19 +82,16 @@ const Dashboard = () => {
     } finally {
       setLoading(false);
     }
-  }, [filterNotification]);
+  }, [user, filterNotification, handleLogout]);
 
   const pollUpdates = useCallback(async () => {
+    if (!user) return;
     try {
-      const token = localStorage.getItem('token');
-      const res = await axios.get(`/api/updates/poll?lastCheck=${lastCheckRef.current}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-
+      const res = await API.get(`/api/updates/poll?lastCheck=${lastCheckRef.current}`);
       const newNotifs = res.data.notifications || [];
       
       if (newNotifs.length > 0) {
-        const filteredNew = newNotifs.filter(filterNotification);
+        const filteredNew = newNotifs.filter(item => filterNotification(item, user));
         if (filteredNew.length > 0) {
           setNotifications(prev => {
             const existingIds = new Set(prev.map(n => n._id));
@@ -98,70 +104,58 @@ const Dashboard = () => {
     } catch (err) {
       console.warn("Polling failed:", err.message);
     }
-  }, [filterNotification]);
+  }, [user, filterNotification]);
+
+  // NEW: Effect to sync user profile from DB on mount
+  useEffect(() => {
+    const syncUser = async () => {
+      try {
+        const res = await API.get('/api/users/me');
+        setUser(res.data);
+        localStorage.setItem('user', JSON.stringify(res.data));
+      } catch (err) {
+        const savedUser = localStorage.getItem('user');
+        if (savedUser) setUser(JSON.parse(savedUser));
+        else handleLogout();
+      }
+    };
+    syncUser();
+  }, [handleLogout]);
 
   useEffect(() => {
-    const savedUser = localStorage.getItem('user');
-    if (savedUser) setUser(JSON.parse(savedUser));
-  }, []);
-
-  useEffect(() => {
-    // Only fetch if the user profile is loaded
-    if (user.department || user.faculty || user.role === 'SuperAdmin') {
+    // Only fetch if the user is fully synced
+    if (user && (user.department || user.faculty || user.role === 'SuperAdmin')) {
       fetchFeed();
       const pollInterval = setInterval(pollUpdates, 30000); 
       return () => clearInterval(pollInterval);
     }
-  }, [user.department, user.faculty, user.role, fetchFeed, pollUpdates]);
+  }, [user, fetchFeed, pollUpdates]);
 
   const handleBookmarkToggle = async (post) => {
-    const token = localStorage.getItem('token');
-    const headers = { Authorization: `Bearer ${token}` };
     const isCurrentlyBookmarked = post.isBookmarked;
-    
     setNotifications(prev => prev.map(n => 
       n._id === post._id ? { ...n, isBookmarked: !isCurrentlyBookmarked } : n
     ));
 
     try {
       if (isCurrentlyBookmarked) {
-        await axios.delete(`/api/bookmarks`, {
-          headers,
+        await API.delete(`/api/bookmarks`, {
           data: { itemId: post._id, itemType: 'Notification' }
         });
       } else {
-        await axios.post(`/api/bookmarks`, 
-          { itemId: post._id, itemType: 'Notification' },
-          { headers }
-        );
+        await API.post(`/api/bookmarks`, { itemId: post._id, itemType: 'Notification' });
       }
     } catch (err) {
-      // Revert on error
       setNotifications(prev => prev.map(n => 
         n._id === post._id ? { ...n, isBookmarked: isCurrentlyBookmarked } : n
       ));
     }
   };
 
-  const handleDeletePost = async (postId) => {
-    if (!window.confirm("Are you sure you want to delete this post?")) return;
-    try {
-      await axios.delete(`/api/notifications/${postId}`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-      });
-      setNotifications(prev => prev.filter(n => n._id !== postId));
-    } catch (err) {
-      alert("Delete failed: " + (err.response?.data?.message || "Unauthorized"));
-    }
-  };
-
   const handleCreateNotification = async (formData) => {
     try {
-      await axios.post('/api/notifications', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-          Authorization: `Bearer ${localStorage.getItem('token')}`
-        }
+      await API.post('/api/notifications', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
       });
       setIsFormOpen(false);
       fetchFeed(); 
@@ -170,11 +164,14 @@ const Dashboard = () => {
     }
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    navigate('/login');
-  };
+  // Show a loading screen while user profile is being verified
+  if (!user) {
+    return <div className="min-h-screen flex items-center justify-center bg-white">
+      <div className="w-10 h-10 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+    </div>;
+  }
+
+  const canCreate = ["FacultyAdmin", "DepartmentAdmin", "SuperAdmin"].includes(user.role);
 
   const filteredNotifications = notifications.filter(item => {
     const search = searchQuery.toLowerCase();
@@ -204,7 +201,7 @@ const Dashboard = () => {
           <div className="flex items-center gap-3 p-2 mb-4">
             <div className="h-10 w-10 rounded-full bg-indigo-600 overflow-hidden flex items-center justify-center text-white font-bold text-xs shadow-sm">
               {user.profilePic ? (
-                <img src={user.profilePic} alt="Me" className="h-full w-full object-cover" />
+                <img src={user.profilePic.replace('http://', 'https://')} alt="Me" className="h-full w-full object-cover" />
               ) : (
                 user.name?.charAt(0).toUpperCase()
               )}
@@ -240,7 +237,7 @@ const Dashboard = () => {
                     onClick={() => navigate('/profile')}
                   >
                     {user.profilePic ? (
-                      <img src={user.profilePic} alt="Profile" className="h-full w-full object-cover" />
+                      <img src={user.profilePic.replace('http://', 'https://')} alt="Profile" className="h-full w-full object-cover" />
                     ) : (
                       <UserIcon size={18} />
                     )}
@@ -273,7 +270,7 @@ const Dashboard = () => {
                   isNotification={true} 
                   isBookmarked={post.isBookmarked}
                   onBookmarkToggle={() => handleBookmarkToggle(post)}
-                  onDelete={handleDeletePost}
+                  onDelete={() => {}}
                   currentUser={user}
                   postTarget={post.target}
                 />
