@@ -13,6 +13,9 @@ import ForgotPassword from './features/auth/ForgotPassword';
 import ResetPassword from './features/auth/ResetPassword';
 import Dashboard from './features/notifications/Dashboard'; 
 import OfficialAnnouncements from './features/announcements/OfficialAnnouncements'; 
+import Bookmarks from './features/bookmarks/Bookmarks'; 
+import Schedule from './features/calendar/Schedule';
+import Profile from './features/profile/Profile'; // New Import
 
 const App = () => {
   return (
@@ -20,7 +23,6 @@ const App = () => {
       <div className="min-h-screen bg-white font-sans text-slate-900 selection:bg-indigo-100">
         <Routes>
           {/* --- PUBLIC ONLY ROUTES --- */}
-          {/* Prevent logged-in users from accessing login/register */}
           <Route element={<PublicRoute />}>
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
@@ -28,14 +30,14 @@ const App = () => {
           </Route>
 
           {/* --- PROTECTED ROUTES --- */}
-          {/* Requires valid token/session */}
           <Route element={<ProtectedRoute />}>
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/announcements" element={<OfficialAnnouncements />} />
+            <Route path="/bookmarks" element={<Bookmarks />} />
+            <Route path="/schedule" element={<Schedule />} />
             
-            {/* Placeholder routes for future implementation */}
-            <Route path="/bookmarks" element={<Navigate to="/dashboard" replace />} />
-            <Route path="/schedule" element={<Navigate to="/dashboard" replace />} />
+            {/* PROFILE ROUTE: Allows users to view/edit their data */}
+            <Route path="/profile" element={<Profile />} />
           </Route>
 
           {/* --- HYBRID / UTILITY ROUTES --- */}
@@ -45,7 +47,7 @@ const App = () => {
           {/* Global Redirects */}
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
           
-          {/* 404 Redirect - Catch all unknown routes */}
+          {/* 404 Redirect */}
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>
       </div>

@@ -12,43 +12,58 @@ import axios from 'axios';
 const OfficialAnnouncements = () => {
   const navigate = useNavigate();
   const [announcements, setAnnouncements] = useState([]);
+  const [bookmarkedIds, setBookmarkedIds] = useState(new Set());
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [showMobileSearch, setShowMobileSearch] = useState(false);
   const [isFormOpen, setIsFormOpen] = useState(false);
-  const [user, setUser] = useState({ name: 'Student', department: 'University', role: 'Student' });
+  const [user, setUser] = useState({ name: 'Student', department: 'University', role: 'Student', profilePic: '' });
   
-  // Ref to track the last sync time for the polling endpoint
-  const lastCheckRef = useRef(new Date().toISOString());
+  const lastCheckRef = useRef(new Date(0).toISOString());
 
-  // Permissions based on the announcementRoutes.js configuration
-  const canCreate = ["SchoolAdmin", "SuperAdmin"].includes(user.role);
+  const canCreateAnnouncement = ["SchoolAdmin", "SuperAdmin"].includes(user.role);
+  const canCreateNotification = ["FacultyAdmin", "DepartmentAdmin", "SuperAdmin"].includes(user.role);
+  const canCreateAny = canCreateAnnouncement || canCreateNotification;
 
-  /**
-   * Fetches updates from the polling endpoint.
-   * If isPolling is true, it runs silently in the background.
-   */
+  const fetchBookmarks = useCallback(async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.get('https://student-notification-system-1.onrender.com/api/bookmarks', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const ids = new Set(response.data.map(b => b.itemId?._id).filter(id => id));
+      setBookmarkedIds(ids);
+    } catch (err) {
+      console.error("Error fetching bookmarks:", err);
+    }
+  }, []);
+
   const fetchOfficialFeed = useCallback(async (isPolling = false) => {
     try {
       if (!isPolling) setLoading(true);
+      const token = localStorage.getItem('token');
+      const config = { headers: { Authorization: `Bearer ${token}` } };
 
-      // Connects to the /poll endpoint provided in pollingRoutes.js
-      const response = await axios.get(`/api/updates/poll?lastCheck=${lastCheckRef.current}`);
+      const response = await axios.get(`https://student-notification-system-1.onrender.com/api/updates/poll?lastCheck=${lastCheckRef.current}`, config);
       const newItems = response.data.announcements || [];
       
-      if (newItems.length > 0) {
+      if (newItems.length > 0 || !isPolling) {
         setAnnouncements(prev => {
-          const combined = [...newItems, ...prev];
-          // Remove duplicates and ensure unique items by ID
-          return Array.from(new Map(combined.map(item => [item._id, item])).values());
+          const combined = isPolling ? [...newItems, ...prev] : [...newItems];
+          const uniqueMap = new Map();
+          combined.forEach(item => uniqueMap.set(item._id, item));
+          
+          return Array.from(uniqueMap.values()).sort((a, b) => 
+            new Date(b.createdAt) - new Date(a.createdAt)
+          );
         });
-        // Update the timestamp to the current time after a successful fetch
-        lastCheckRef.current = new Date().toISOString();
       }
+      
+      lastCheckRef.current = new Date().toISOString();
     } catch (err) { 
       console.error("Polling error:", err); 
     } finally { 
-      setLoading(false); 
+      if (!isPolling) setLoading(false); 
     }
   }, []);
 
@@ -56,29 +71,68 @@ const OfficialAnnouncements = () => {
     const savedUser = localStorage.getItem('user');
     if (savedUser) setUser(JSON.parse(savedUser));
 
-    // Reset timestamp to epoch to fetch all history on initial mount
-    lastCheckRef.current = new Date(0).toISOString();
     fetchOfficialFeed();
+    fetchBookmarks();
 
-    // Set up 30-second polling interval
-    const interval = setInterval(() => fetchOfficialFeed(true), 30000);
+    const interval = setInterval(() => fetchOfficialFeed(true), 10000);
     return () => clearInterval(interval);
-  }, [fetchOfficialFeed]);
+  }, [fetchOfficialFeed, fetchBookmarks]);
 
-  const handlePostSubmit = async (formData) => {
+  const handleBookmarkToggle = async (post) => {
     try {
-      await axios.post('/api/announcements', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
+      const token = localStorage.getItem('token');
+      const isCurrentlyBookmarked = bookmarkedIds.has(post._id);
+
+      if (isCurrentlyBookmarked) {
+        await axios.delete('https://student-notification-system-1.onrender.com/api/bookmarks', {
+          headers: { Authorization: `Bearer ${token}` },
+          data: { itemId: post._id, itemType: 'Announcement' }
+        });
+        setBookmarkedIds(prev => {
+          const next = new Set(prev);
+          next.delete(post._id);
+          return next;
+        });
+      } else {
+        await axios.post('https://student-notification-system-1.onrender.com/api/bookmarks', {
+          itemId: post._id,
+          itemType: 'Announcement'
+        }, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        setBookmarkedIds(prev => new Set(prev).add(post._id));
+      }
+    } catch (err) {
+      console.error("Bookmark toggle failed:", err);
+    }
+  };
+
+  const handlePostSubmit = async (formData, type) => {
+    try {
+      const token = localStorage.getItem('token');
+      const endpoint = type === 'Announcement' 
+        ? 'https://student-notification-system-1.onrender.com/api/announcements' 
+        : 'https://student-notification-system-1.onrender.com/api/notifications';
+
+      await axios.post(endpoint, formData, {
+        headers: { 
+          'Content-Type': 'multipart/form-data',
+          'Authorization': `Bearer ${token}`
+        }
       });
-      // Refresh feed immediately after posting
+
+      setIsFormOpen(false);
+      lastCheckRef.current = new Date(0).toISOString();
       fetchOfficialFeed();
     } catch (err) { 
-      console.error("Post submission error:", err); 
+      console.error("Post submission error:", err.response?.data || err.message);
+      alert(err.response?.data?.message || "Server Error");
     }
   };
 
   const filteredAnnouncements = announcements.filter(post => 
-    post.content?.toLowerCase().includes(searchQuery.toLowerCase())
+    post.content?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    post.title?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const handleLogout = () => {
@@ -98,20 +152,26 @@ const OfficialAnnouncements = () => {
         <nav className="space-y-1 flex-1">
           <NavButton icon={<Home />} label="Home" active={false} onClick={() => navigate('/dashboard')} />
           <NavButton icon={<Bell />} label="Official" active={true} onClick={() => navigate('/announcements')} />
-          <NavButton icon={<Bookmark />} label="Bookmarks" active={false} />
-          <NavButton icon={<Calendar />} label="Schedule" active={false} />
+          <NavButton icon={<Bookmark />} label="Bookmarks" active={false} onClick={() => navigate('/bookmarks')} />
+          <NavButton icon={<Calendar />} label="Schedule" active={false} onClick={() => navigate('/schedule')} />
+          <NavButton icon={<UserIcon />} label="Profile" active={false} onClick={() => navigate('/profile')} />
         </nav>
         <div className="mt-auto pt-6 border-t border-slate-50">
           <div className="flex items-center gap-3 p-2 mb-4">
-            <div className="h-10 w-10 rounded-full bg-indigo-600 flex items-center justify-center text-white font-bold text-xs shadow-sm">
-               {user.name?.charAt(0).toUpperCase()}
+            {/* PROFILE PICTURE SYNC */}
+            <div className="h-10 w-10 rounded-full bg-indigo-600 overflow-hidden flex items-center justify-center text-white font-bold text-xs shadow-sm">
+              {user.profilePic ? (
+                <img src={user.profilePic} alt="Me" className="h-full w-full object-cover" />
+              ) : (
+                user.name?.charAt(0).toUpperCase()
+              )}
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-bold text-slate-900 truncate">{user.name}</p>
               <p className="text-[10px] text-slate-400 font-bold uppercase truncate">{user.department}</p>
             </div>
           </div>
-          <button onClick={handleLogout} className="w-full flex items-center gap-4 px-4 py-3 rounded-xl text-red-500 hover:bg-red-50 transition-all">
+          <button onClick={handleLogout} className="w-full flex items-center gap-4 px-4 py-3 rounded-xl text-red-500 hover:bg-red-50 transition-all text-left">
             <LogOut size={20} />
             <span className="text-sm font-medium">Logout</span>
           </button>
@@ -130,8 +190,15 @@ const OfficialAnnouncements = () => {
                 </div>
                 <div className="flex items-center gap-3">
                   <button onClick={() => setShowMobileSearch(true)} className="lg:hidden p-2 text-slate-500"><Search size={20} /></button>
-                  <div className="h-9 w-9 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-indigo-600 shadow-sm">
-                    <UserIcon size={18} />
+                  <div 
+                    className="h-9 w-9 rounded-full bg-slate-100 border border-slate-200 overflow-hidden flex items-center justify-center text-indigo-600 shadow-sm cursor-pointer"
+                    onClick={() => navigate('/profile')}
+                  >
+                    {user.profilePic ? (
+                      <img src={user.profilePic} alt="Profile" className="h-full w-full object-cover" />
+                    ) : (
+                      <UserIcon size={18} />
+                    )}
                   </div>
                 </div>
               </>
@@ -152,12 +219,16 @@ const OfficialAnnouncements = () => {
             filteredAnnouncements.map((post) => (
               <PostCard 
                 key={post._id} 
-                type="Official" 
+                id={post._id}
+                type={post.type || "Official"} 
                 author="University Admin" 
                 content={post.content} 
                 time={post.createdAt} 
                 files={post.files} 
-                isNotification={false} 
+                isNotification={false}
+                isBookmarked={bookmarkedIds.has(post._id)}
+                onBookmarkToggle={() => handleBookmarkToggle(post)}
+                currentUser={user}
               />
             ))
           ) : (
@@ -166,15 +237,7 @@ const OfficialAnnouncements = () => {
                 <Inbox size={32} className="text-slate-300" />
               </div>
               <h3 className="text-lg font-bold text-slate-900">No announcements yet</h3>
-              <p className="text-sm text-slate-500 mt-2 max-w-xs">
-                When official university updates are posted, they will appear here. Check back later!
-              </p>
-              <button 
-                onClick={() => fetchOfficialFeed()} 
-                className="mt-6 text-xs font-bold text-indigo-600 hover:text-indigo-700 underline underline-offset-4"
-              >
-                Refresh feed
-              </button>
+              <p className="text-sm text-slate-500 mt-2 max-w-xs">Check back later for official updates.</p>
             </div>
           )}
         </div>
@@ -199,7 +262,7 @@ const OfficialAnnouncements = () => {
                <span className="text-[10px] font-black uppercase tracking-[0.2em]">Verified</span>
             </div>
             <p className="text-xs leading-relaxed font-bold">
-              All updates in this section are strictly verified by the university senate and academic board.
+              Updates in this section are verified by the academic board.
             </p>
           </div>
           <div>
@@ -209,14 +272,14 @@ const OfficialAnnouncements = () => {
         </div>
       </aside>
 
-      {/* Floating Action Button for Admins */}
-      {canCreate && (
+      {/* Floating Action Button */}
+      {canCreateAny && (
         <button 
           onClick={() => setIsFormOpen(true)}
           className="fixed bottom-24 right-6 xl:bottom-10 xl:right-10 z-[60] bg-[#020617] text-white p-4 rounded-2xl shadow-2xl hover:scale-110 active:scale-95 transition-all flex items-center gap-3 group"
         >
           <Plus size={24} strokeWidth={3} />
-          <span className="max-w-0 overflow-hidden group-hover:max-w-xs transition-all duration-500 font-bold text-sm whitespace-nowrap">Create Announcement</span>
+          <span className="max-w-0 overflow-hidden group-hover:max-w-xs transition-all duration-500 font-bold text-sm whitespace-nowrap">Create Post</span>
         </button>
       )}
 
@@ -224,12 +287,12 @@ const OfficialAnnouncements = () => {
       <div className="xl:hidden fixed bottom-6 left-1/2 -translate-x-1/2 w-[90%] max-w-md bg-[#020617]/90 backdrop-blur-xl border border-white/10 px-6 py-3 z-50 rounded-2xl flex justify-between items-center shadow-2xl">
         <MobileNavButton icon={<Home />} active={false} onClick={() => navigate('/dashboard')} />
         <MobileNavButton icon={<Bell />} active={true} onClick={() => navigate('/announcements')} />
-        <MobileNavButton icon={<Bookmark />} active={false} />
-        <MobileNavButton icon={<Calendar />} active={false} />
+        <MobileNavButton icon={<Bookmark />} active={false} onClick={() => navigate('/bookmarks')} />
+        <MobileNavButton icon={<Calendar />} active={false} onClick={() => navigate('/schedule')} />
+        <MobileNavButton icon={<UserIcon />} active={false} onClick={() => navigate('/profile')} />
         <button onClick={handleLogout} className="p-2 text-red-400"><LogOut size={20} /></button>
       </div>
 
-      {/* Post Creation Modal */}
       <Form 
         isOpen={isFormOpen} 
         onClose={() => setIsFormOpen(false)} 
