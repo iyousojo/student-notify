@@ -9,7 +9,6 @@ import Form from "../../components/Form/Form";
 import { NavButton, MobileNavButton, QuickLink } from '../../components/Navigation';
 import axios from 'axios';
 
-// API Configuration
 axios.defaults.baseURL = 'https://student-notification-system-1.onrender.com';
 
 const Dashboard = () => {
@@ -25,22 +24,24 @@ const Dashboard = () => {
 
   const canCreate = ["FacultyAdmin", "DepartmentAdmin", "SuperAdmin"].includes(user.role);
 
+  // --- REFINED FILTER LOGIC ---
   const filterNotification = useCallback((item) => {
-    // 1. Show if global (School wide)
-    if (item.target?.role === 'All' || item.role === 'All' || item.isGlobal) return true;
+    // 1. Always show Global/Official updates
+    if (item.target?.role === 'All' || item.isGlobal) return true;
 
-    // 2. Department match
+    // 2. Strict Department Match (Highest priority for students)
     if (item.target?.department) {
       return item.target.department === user?.department;
     }
 
-    // 3. Faculty match
+    // 3. Strict Faculty Match (If no specific department is targeted)
     if (item.target?.faculty) {
       return item.target.faculty === user?.faculty;
     }
 
+    // 4. Default to false if it doesn't match the user's academic scope
     return false;
-  }, [user]);
+  }, [user.department, user.faculty]);
 
   const fetchFeed = useCallback(async () => {
     try {
@@ -58,7 +59,7 @@ const Dashboard = () => {
       const bookmarkedIds = new Set(userBookmarks.map(b => b.itemId?._id || b.itemId));
 
       const processedItems = allNotifs
-        .filter(filterNotification)
+        .filter(filterNotification) // Apply academic scoping
         .map(item => ({
           ...item,
           isBookmarked: bookmarkedIds.has(item._id)
@@ -72,7 +73,7 @@ const Dashboard = () => {
     } finally {
       setLoading(false);
     }
-  }, [user.department, user.faculty, filterNotification]);
+  }, [filterNotification]);
 
   const pollUpdates = useCallback(async () => {
     try {
@@ -105,12 +106,13 @@ const Dashboard = () => {
   }, []);
 
   useEffect(() => {
-    if (user.department || user.role === 'SuperAdmin' || user.role === 'FacultyAdmin') {
+    // Only fetch if the user profile is loaded
+    if (user.department || user.faculty || user.role === 'SuperAdmin') {
       fetchFeed();
       const pollInterval = setInterval(pollUpdates, 30000); 
       return () => clearInterval(pollInterval);
     }
-  }, [user, fetchFeed, pollUpdates]);
+  }, [user.department, user.faculty, user.role, fetchFeed, pollUpdates]);
 
   const handleBookmarkToggle = async (post) => {
     const token = localStorage.getItem('token');
@@ -134,6 +136,7 @@ const Dashboard = () => {
         );
       }
     } catch (err) {
+      // Revert on error
       setNotifications(prev => prev.map(n => 
         n._id === post._id ? { ...n, isBookmarked: isCurrentlyBookmarked } : n
       ));
@@ -227,7 +230,7 @@ const Dashboard = () => {
                 <div className="flex flex-col">
                   <h1 className="text-xl font-extrabold tracking-tight text-slate-900 leading-none">Home Feed</h1>
                   <p className="text-[10px] font-bold text-indigo-600 uppercase tracking-widest mt-1">
-                    {user.role === 'SuperAdmin' ? 'Global Scope' : user.department || 'General Updates'}
+                    {user.role === 'SuperAdmin' ? 'Global Scope' : user.department || user.faculty || 'General Updates'}
                   </p>
                 </div>
                 <div className="flex items-center gap-3">
@@ -281,7 +284,9 @@ const Dashboard = () => {
                 <Inbox size={32} className="text-slate-300" />
               </div>
               <h3 className="text-lg font-bold text-slate-900">No updates yet</h3>
-              <p className="text-sm text-slate-500 mt-2 max-w-xs">Notifications for {user.department || 'your area'} will appear here.</p>
+              <p className="text-sm text-slate-500 mt-2 max-w-xs">
+                Notifications for **{user.department || user.faculty || 'your area'}** will appear here.
+              </p>
             </div>
           )}
         </div>
@@ -300,7 +305,7 @@ const Dashboard = () => {
                <span className="text-[10px] font-black uppercase tracking-widest">Scoped Feed</span>
             </div>
             <p className="text-xs leading-relaxed font-bold">
-              Showing updates specifically for **{user.department || 'your faculty'}**.
+              Showing updates specifically for **{user.department || user.faculty || 'your institution'}**.
             </p>
           </div>
           <div>
