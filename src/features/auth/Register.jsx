@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
+// Updated to match the backend User.js model exactly
 const facultyDepartments = {
   Science: ["Math", "Chemistry", "Physics", "Computer Science"],
+  "Physical Science": ["Math", "Chemistry", "Physics", "Computer Science"],
   Engineering: ["Civil Engineering", "Mechanical Engineering", "Electrical Engineering", "Computer Engineering"],
   Arts: ["History", "Philosophy", "Linguistics", "Literature"],
   "Social Science": ["Sociology", "Political Science", "Psychology", "Economics"],
@@ -12,12 +14,18 @@ const facultyDepartments = {
 const Register = () => {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({ 
-    name: '', email: '', password: '', faculty: '', department: '', role: 'Student' 
+    name: '', 
+    email: '', 
+    password: '', 
+    faculty: '', 
+    department: '', 
+    role: 'Student' 
   });
   const [availableDepartments, setAvailableDepartments] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+  // Sync departments when faculty changes
   useEffect(() => {
     if (formData.faculty) {
       setAvailableDepartments(facultyDepartments[formData.faculty] || []);
@@ -35,6 +43,7 @@ const Register = () => {
     setError('');
 
     try {
+      // Endpoint verified against authRoutes
       const response = await fetch('https://student-notification-system-1.onrender.com/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -42,8 +51,12 @@ const Register = () => {
       });
 
       const data = await response.json();
-      if (!response.ok) throw new Error(data.message || 'Registration failed');
+      
+      if (!response.ok) {
+        throw new Error(data.message || 'Registration failed');
+      }
 
+      // Store email for the verification page context
       localStorage.setItem('tempEmail', formData.email);
       navigate('/verify-email');
     } catch (err) {
@@ -93,25 +106,51 @@ const Register = () => {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-[0.15em] mb-1.5 ml-0.5">Full Name</label>
-              <input type="text" name="name" required onChange={handleChange} className="w-full px-4 py-3 rounded-lg border border-slate-200 text-sm focus:ring-1 focus:ring-indigo-600 outline-none transition-all placeholder:opacity-50" placeholder="John Doe" />
+              <input 
+                type="text" 
+                name="name" 
+                required 
+                onChange={handleChange} 
+                className="w-full px-4 py-3 rounded-lg border border-slate-200 text-sm focus:ring-1 focus:ring-indigo-600 outline-none transition-all placeholder:opacity-50" 
+                placeholder="John Doe" 
+              />
             </div>
 
             <div>
               <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-[0.15em] mb-1.5 ml-0.5">Email Address</label>
-              <input type="email" name="email" required onChange={handleChange} className="w-full px-4 py-3 rounded-lg border border-slate-200 text-sm focus:ring-1 focus:ring-indigo-600 outline-none transition-all placeholder:opacity-50" placeholder="id@university.edu.ng" />
+              <input 
+                type="email" 
+                name="email" 
+                required 
+                onChange={handleChange} 
+                className="w-full px-4 py-3 rounded-lg border border-slate-200 text-sm focus:ring-1 focus:ring-indigo-600 outline-none transition-all placeholder:opacity-50" 
+                placeholder="id@university.edu.ng" 
+              />
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-[0.15em] mb-1.5 ml-0.5">Faculty</label>
-                <select name="faculty" required onChange={handleChange} className="w-full px-3 py-3 rounded-lg border border-slate-200 text-xs focus:ring-1 focus:ring-indigo-600 outline-none bg-white transition-all">
+                <select 
+                  name="faculty" 
+                  required 
+                  onChange={handleChange} 
+                  className="w-full px-3 py-3 rounded-lg border border-slate-200 text-xs focus:ring-1 focus:ring-indigo-600 outline-none bg-white transition-all"
+                >
                   <option value="">Select...</option>
                   {Object.keys(facultyDepartments).map(f => <option key={f} value={f}>{f}</option>)}
                 </select>
               </div>
               <div>
                 <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-[0.15em] mb-1.5 ml-0.5">Department</label>
-                <select name="department" value={formData.department} required onChange={handleChange} disabled={!formData.faculty} className="w-full px-3 py-3 rounded-lg border border-slate-200 text-xs focus:ring-1 focus:ring-indigo-600 outline-none bg-white disabled:opacity-50 transition-all">
+                <select 
+                  name="department" 
+                  value={formData.department} 
+                  required 
+                  onChange={handleChange} 
+                  disabled={!formData.faculty} 
+                  className="w-full px-3 py-3 rounded-lg border border-slate-200 text-xs focus:ring-1 focus:ring-indigo-600 outline-none bg-white disabled:opacity-50 transition-all"
+                >
                   <option value="">Select...</option>
                   {availableDepartments.map(d => <option key={d} value={d}>{d}</option>)}
                 </select>
@@ -120,10 +159,22 @@ const Register = () => {
 
             <div>
               <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-[0.15em] mb-1.5 ml-0.5">Password</label>
-              <input type="password" name="password" required minLength="6" onChange={handleChange} className="w-full px-4 py-3 rounded-lg border border-slate-200 text-sm focus:ring-1 focus:ring-indigo-600 outline-none transition-all placeholder:opacity-50" placeholder="••••••••" />
+              <input 
+                type="password" 
+                name="password" 
+                required 
+                minLength="6" 
+                onChange={handleChange} 
+                className="w-full px-4 py-3 rounded-lg border border-slate-200 text-sm focus:ring-1 focus:ring-indigo-600 outline-none transition-all placeholder:opacity-50" 
+                placeholder="••••••••" 
+              />
             </div>
 
-            <button type="submit" disabled={loading} className="w-full bg-[#020617] text-white font-bold py-3.5 rounded-lg text-xs uppercase tracking-widest shadow-lg disabled:opacity-50 active:scale-[0.98] transition-transform mt-2">
+            <button 
+              type="submit" 
+              disabled={loading} 
+              className="w-full bg-[#020617] text-white font-bold py-3.5 rounded-lg text-xs uppercase tracking-widest shadow-lg disabled:opacity-50 active:scale-[0.98] transition-transform mt-2"
+            >
               {loading ? 'Initializing...' : 'Confirm Enrollment'}
             </button>
           </form>
