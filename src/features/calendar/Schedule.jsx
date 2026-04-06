@@ -1,12 +1,23 @@
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Home, Bell, Bookmark, Calendar as CalendarIcon, LogOut, 
   ChevronLeft, ChevronRight, Inbox, ArrowRight, Clock, User as UserIcon,
-  Search, X, Globe, BookOpen, Link as LinkIcon, ShieldCheck
+  Globe
 } from 'lucide-react';
 import axios from 'axios';
-import { NavButton, MobileNavButton, QuickLink } from '../../components/Navigation';
+import { NavButton, MobileNavButton } from '../../components/Navigation';
+
+// Centralized API instance
+const API = axios.create({
+  baseURL: 'https://student-notification-system-1.onrender.com',
+});
+
+API.interceptors.request.use((config) => {
+  const token = localStorage.getItem('token');
+  if (token) config.headers.Authorization = `Bearer ${token}`;
+  return config;
+});
 
 const Schedule = () => {
   const navigate = useNavigate();
@@ -14,22 +25,38 @@ const Schedule = () => {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [allEvents, setAllEvents] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [user, setUser] = useState({ name: 'Student', department: '', faculty: '', role: 'Student' });
+  const [user, setUser] = useState(null); 
   
-  const months = [
-    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
-    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
-  ];
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+  const handleLogout = useCallback(() => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    navigate('/login');
+  }, [navigate]);
+
+  // Sync user profile from DB to ensure academic scope is accurate
+  useEffect(() => {
+    const syncUser = async () => {
+      try {
+        const res = await API.get('/api/users/me');
+        setUser(res.data);
+        localStorage.setItem('user', JSON.stringify(res.data));
+      } catch (err) {
+        const savedUser = localStorage.getItem('user');
+        if (savedUser) setUser(JSON.parse(savedUser));
+        else handleLogout();
+      }
+    };
+    syncUser();
+  }, [handleLogout]);
 
   const fetchAllData = useCallback(async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('token');
-      const headers = { Authorization: `Bearer ${token}` };
-
       const [notifRes, announceRes] = await Promise.all([
-        axios.get('/api/notifications', { headers }),
-        axios.get('/api/announcements', { headers })
+        API.get('/api/notifications'),
+        API.get('/api/announcements')
       ]);
 
       const notifs = (notifRes.data.data || notifRes.data || []).map(i => ({ ...i, type: 'notification' }));
@@ -44,49 +71,37 @@ const Schedule = () => {
   }, []);
 
   useEffect(() => {
-    const savedUser = localStorage.getItem('user');
-    if (savedUser) setUser(JSON.parse(savedUser));
-    fetchAllData();
-  }, [fetchAllData]);
+    if (user) fetchAllData();
+  }, [user, fetchAllData]);
+
+  // Optimization: Create a Set of date strings for O(1) lookup in the calendar grid
+  const eventDateSet = useMemo(() => {
+    return new Set(allEvents.map(item => new Date(item.createdAt || item.date).toDateString()));
+  }, [allEvents]);
 
   const filteredItems = useMemo(() => {
     const selStr = selectedDate.toDateString();
-    return allEvents.filter(item => {
-      const itemDate = new Date(item.createdAt || item.date);
-      return itemDate.toDateString() === selStr;
-    });
+    return allEvents.filter(item => new Date(item.createdAt || item.date).toDateString() === selStr);
   }, [allEvents, selectedDate]);
 
-  const hasEventOnDay = (day) => {
-    const dateObj = new Date(currentDate.getFullYear(), currentDate.getMonth(), day);
-    const dateStr = dateObj.toDateString();
-    return allEvents.some(item => new Date(item.createdAt || item.date).toDateString() === dateStr);
-  };
-
-  // Calendar Logic
+  // Calendar Grid Logic
   const daysInMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
   const firstDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1).getDay();
   const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
   const padding = Array.from({ length: firstDayOfMonth }, (_, i) => i);
 
-  const handleMonthSelect = (monthIndex) => {
-    setCurrentDate(new Date(currentDate.getFullYear(), monthIndex, 1));
-  };
+  const handleMonthSelect = (monthIndex) => setCurrentDate(new Date(currentDate.getFullYear(), monthIndex, 1));
+  const handleYearChange = (offset) => setCurrentDate(new Date(currentDate.getFullYear() + offset, currentDate.getMonth(), 1));
 
-  const handleYearChange = (offset) => {
-    setCurrentDate(new Date(currentDate.getFullYear() + offset, currentDate.getMonth(), 1));
-  };
-
-  const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    navigate('/login');
-  };
+  if (!user) return (
+    <div className="min-h-screen flex items-center justify-center bg-white">
+      <div className="w-8 h-8 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-white flex selection:bg-indigo-100">
-      
-      {/* Sidebar - Desktop (Matches Dashboard) */}
+      {/* Sidebar - Desktop */}
       <aside className="hidden xl:flex flex-col w-72 p-6 border-r border-slate-100 sticky top-0 h-screen shrink-0">
         <div className="mb-10 px-4 flex items-center gap-3">
           <div className="h-9 w-9 bg-[#020617] rounded-xl flex items-center justify-center text-white font-bold shadow-lg">S</div>
@@ -104,7 +119,7 @@ const Schedule = () => {
           <div className="flex items-center gap-3 p-2 mb-4">
             <div className="h-10 w-10 rounded-full bg-indigo-600 overflow-hidden flex items-center justify-center text-white font-bold text-xs shadow-sm">
               {user.profilePic ? (
-                <img src={user.profilePic} alt="Me" className="h-full w-full object-cover" />
+                <img src={user.profilePic.replace('http://', 'https://')} alt="Me" className="h-full w-full object-cover" />
               ) : (
                 user.name?.charAt(0).toUpperCase()
               )}
@@ -139,7 +154,6 @@ const Schedule = () => {
         </header>
 
         <div className="p-4 lg:p-8">
-          {/* Month Quick-Switcher */}
           <div className="flex gap-2 overflow-x-auto pb-4 no-scrollbar mb-6">
             {months.map((month, index) => (
               <button
@@ -157,7 +171,6 @@ const Schedule = () => {
           </div>
 
           <div className="grid lg:grid-cols-12 gap-8">
-            {/* Calendar View */}
             <div className="lg:col-span-8 bg-slate-50 rounded-3xl p-6 border border-slate-100 h-fit">
               <div className="grid grid-cols-7 gap-2 lg:gap-4 mb-4">
                 {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => (
@@ -169,9 +182,10 @@ const Schedule = () => {
                 {padding.map(i => <div key={`p-${i}`} />)}
                 {days.map(day => {
                   const dateObj = new Date(currentDate.getFullYear(), currentDate.getMonth(), day);
-                  const isSelected = selectedDate.toDateString() === dateObj.toDateString();
-                  const isToday = new Date().toDateString() === dateObj.toDateString();
-                  const hasEvent = hasEventOnDay(day);
+                  const dateStr = dateObj.toDateString();
+                  const isSelected = selectedDate.toDateString() === dateStr;
+                  const isToday = new Date().toDateString() === dateStr;
+                  const hasEvent = eventDateSet.has(dateStr);
 
                   return (
                     <button
@@ -193,7 +207,6 @@ const Schedule = () => {
               </div>
             </div>
 
-            {/* Event List */}
             <div className="lg:col-span-4 space-y-4">
               <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-1 flex items-center gap-2">
                 <div className="w-1.5 h-1.5 rounded-full bg-indigo-600"></div>
@@ -202,7 +215,9 @@ const Schedule = () => {
               
               <div className="space-y-3">
                 {loading ? (
-                  <div className="flex justify-center py-10"><div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div></div>
+                  <div className="flex justify-center py-10">
+                    <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+                  </div>
                 ) : filteredItems.length > 0 ? (
                   filteredItems.map((item) => (
                     <div 
@@ -218,7 +233,9 @@ const Schedule = () => {
                         </span>
                         <Clock size={12} className="text-slate-300" />
                       </div>
-                      <h4 className="font-bold text-slate-800 text-sm leading-snug">{item.title || item.content.substring(0, 45) + "..."}</h4>
+                      <h4 className="font-bold text-slate-800 text-sm leading-snug">
+                        {item.title || item.content.substring(0, 45) + "..."}
+                      </h4>
                       <div className="mt-3 flex items-center text-indigo-600 text-[11px] font-bold opacity-0 group-hover:opacity-100 transition-all">
                         View Details <ArrowRight size={12} className="ml-1" />
                       </div>
@@ -236,9 +253,7 @@ const Schedule = () => {
         </div>
       </main>
 
-    
-
-      {/* Mobile Navigation - Matches Dashboard Structure */}
+      {/* Mobile Navigation */}
       <div className="xl:hidden fixed bottom-6 left-1/2 -translate-x-1/2 w-[90%] max-w-md bg-[#020617]/90 backdrop-blur-xl border border-white/10 px-6 py-3 z-50 rounded-2xl flex justify-between items-center shadow-2xl">
         <MobileNavButton icon={<Home />} active={false} onClick={() => navigate('/dashboard')} />
         <MobileNavButton icon={<Bell />} active={false} onClick={() => navigate('/announcements')} />

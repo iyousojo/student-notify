@@ -1,11 +1,14 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext'; // Import the hook
 
 const Login = () => {
   const [formData, setFormData] = useState({ email: '', password: '' });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  
   const navigate = useNavigate();
+  const { login } = useAuth(); // Extract login function from context
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -16,31 +19,14 @@ const Login = () => {
     setLoading(true);
     setError('');
 
-    try {
-      const response = await fetch('https://student-notification-system-1.onrender.com/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
-      });
+    // Centralized login logic
+    const result = await login(formData.email, formData.password);
 
-      const data = await response.json();
-
-      if (!response.ok) throw new Error(data.message || 'Authentication failed');
-
-      // The controller returns the token and user details at the top level
-      localStorage.setItem('token', data.token);
-      localStorage.setItem('user', JSON.stringify({
-        _id: data._id,
-        name: data.name,
-        role: data.role,
-        faculty: data.faculty,
-        department: data.department
-      }));
-
+    if (result.success) {
+      // AuthContext handles localStorage and state; we just navigate
       navigate('/dashboard');
-    } catch (err) {
-      setError(err.message);
-    } finally {
+    } else {
+      setError(result.message);
       setLoading(false);
     }
   };
@@ -96,13 +82,7 @@ const Login = () => {
             <div>
               <div className="flex justify-between items-center mb-1.5 px-0.5">
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.15em]">Password</label>
-                {/* Linked to Forgot Password Page */}
-                <Link 
-  to="/forgot-password" 
-  className="text-[10px] font-bold text-indigo-600 uppercase hover:underline"
->
-  Forgot?
-</Link>
+                <Link to="/forgot-password" size={12} className="text-[10px] font-bold text-indigo-600 uppercase hover:underline">Forgot?</Link>
               </div>
               <input 
                 type="password" 
