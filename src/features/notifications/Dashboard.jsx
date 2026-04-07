@@ -9,12 +9,10 @@ import Form from "../../components/Form/Form";
 import { NavButton, MobileNavButton, QuickLink } from '../../components/Navigation';
 import axios from 'axios';
 
-// Create a dedicated Axios instance for better header management on Vercel
 const API = axios.create({
   baseURL: 'https://student-notification-system-1.onrender.com',
 });
 
-// Auto-inject token into every request
 API.interceptors.request.use((config) => {
   const token = localStorage.getItem('token');
   if (token) config.headers.Authorization = `Bearer ${token}`;
@@ -28,7 +26,6 @@ const Dashboard = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [showMobileSearch, setShowMobileSearch] = useState(false);
   const [isFormOpen, setIsFormOpen] = useState(false);
-  // Start with null to prevent the UI from "flickering" with default 'Student' data
   const [user, setUser] = useState(null); 
   
   const lastCheckRef = useRef(new Date().toISOString());
@@ -39,23 +36,17 @@ const Dashboard = () => {
     navigate('/login');
   }, [navigate]);
 
-  // --- REFINED FILTER LOGIC ---
   const filterNotification = useCallback((item, currentUser) => {
     if (!currentUser) return false;
     if (item.target?.role === 'All' || item.isGlobal) return true;
     if (currentUser.role === 'SuperAdmin') return true;
-
-    if (item.target?.department) {
-      return item.target.department === currentUser.department;
-    }
-    if (item.target?.faculty) {
-      return item.target.faculty === currentUser.faculty;
-    }
+    if (item.target?.department) return item.target.department === currentUser.department;
+    if (item.target?.faculty) return item.target.faculty === currentUser.faculty;
     return false;
   }, []);
 
   const fetchFeed = useCallback(async () => {
-    if (!user) return; // Wait for user profile to exist
+    if (!user) return;
     try {
       setLoading(true);
       const [notifRes, bookmarkRes] = await Promise.all([
@@ -78,7 +69,6 @@ const Dashboard = () => {
       lastCheckRef.current = new Date().toISOString();
     } catch (err) {
       if (err.response?.status === 401) handleLogout();
-      console.error("Fetch Error:", err);
     } finally {
       setLoading(false);
     }
@@ -89,7 +79,6 @@ const Dashboard = () => {
     try {
       const res = await API.get(`/api/updates/poll?lastCheck=${lastCheckRef.current}`);
       const newNotifs = res.data.notifications || [];
-      
       if (newNotifs.length > 0) {
         const filteredNew = newNotifs.filter(item => filterNotification(item, user));
         if (filteredNew.length > 0) {
@@ -102,11 +91,10 @@ const Dashboard = () => {
       }
       lastCheckRef.current = new Date().toISOString();
     } catch (err) {
-      console.warn("Polling failed:", err.message);
+      console.warn("Polling failed");
     }
   }, [user, filterNotification]);
 
-  // NEW: Effect to sync user profile from DB on mount
   useEffect(() => {
     const syncUser = async () => {
       try {
@@ -123,7 +111,6 @@ const Dashboard = () => {
   }, [handleLogout]);
 
   useEffect(() => {
-    // Only fetch if the user is fully synced
     if (user && (user.department || user.faculty || user.role === 'SuperAdmin')) {
       fetchFeed();
       const pollInterval = setInterval(pollUpdates, 30000); 
@@ -136,55 +123,33 @@ const Dashboard = () => {
     setNotifications(prev => prev.map(n => 
       n._id === post._id ? { ...n, isBookmarked: !isCurrentlyBookmarked } : n
     ));
-
     try {
       if (isCurrentlyBookmarked) {
-        await API.delete(`/api/bookmarks`, {
-          data: { itemId: post._id, itemType: 'Notification' }
-        });
+        await API.delete(`/api/bookmarks`, { data: { itemId: post._id, itemType: 'Notification' } });
       } else {
         await API.post(`/api/bookmarks`, { itemId: post._id, itemType: 'Notification' });
       }
     } catch (err) {
-      setNotifications(prev => prev.map(n => 
-        n._id === post._id ? { ...n, isBookmarked: isCurrentlyBookmarked } : n
-      ));
+      setNotifications(prev => prev.map(n => n._id === post._id ? { ...n, isBookmarked: isCurrentlyBookmarked } : n));
     }
   };
 
-  const handleCreateNotification = async (formData) => {
-    try {
-      await API.post('/api/notifications', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
-      setIsFormOpen(false);
-      fetchFeed(); 
-    } catch (err) {
-      alert(err.response?.data?.message || "Upload failed");
-    }
-  };
-
-  // Show a loading screen while user profile is being verified
   if (!user) {
-    return <div className="min-h-screen flex items-center justify-center bg-white">
+    return <div className="h-screen w-full flex items-center justify-center bg-white">
       <div className="w-10 h-10 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
     </div>;
   }
 
   const canCreate = ["FacultyAdmin", "DepartmentAdmin", "SuperAdmin"].includes(user.role);
-
   const filteredNotifications = notifications.filter(item => {
     const search = searchQuery.toLowerCase();
-    return (
-      item.content?.toLowerCase().includes(search) || 
-      item.title?.toLowerCase().includes(search)
-    );
+    return item.content?.toLowerCase().includes(search) || item.title?.toLowerCase().includes(search);
   });
 
   return (
-    <div className="min-h-screen bg-white flex selection:bg-indigo-100">
+    <div className="h-screen bg-white flex overflow-hidden selection:bg-indigo-100">
       {/* Sidebar - Desktop */}
-      <aside className="hidden xl:flex flex-col w-72 p-6 border-r border-slate-100 sticky top-0 h-screen shrink-0">
+      <aside className="hidden xl:flex flex-col w-72 p-6 border-r border-slate-100 h-full shrink-0">
         <div className="mb-10 px-4 flex items-center gap-3">
           <div className="h-9 w-9 bg-[#020617] rounded-xl flex items-center justify-center text-white font-bold shadow-lg">S</div>
           <span className="font-bold text-slate-900 tracking-tight">StudentNotify</span>
@@ -196,15 +161,10 @@ const Dashboard = () => {
           <NavButton icon={<Calendar />} label="Schedule" active={false} onClick={() => navigate('/schedule')} />
           <NavButton icon={<UserIcon />} label="Profile" active={false} onClick={() => navigate('/profile')} />
         </nav>
-        
         <div className="mt-auto pt-6 border-t border-slate-50">
           <div className="flex items-center gap-3 p-2 mb-4">
-            <div className="h-10 w-10 rounded-full bg-indigo-600 overflow-hidden flex items-center justify-center text-white font-bold text-xs shadow-sm">
-              {user.profilePic ? (
-                <img src={user.profilePic.replace('http://', 'https://')} alt="Me" className="h-full w-full object-cover" />
-              ) : (
-                user.name?.charAt(0).toUpperCase()
-              )}
+            <div className="h-10 w-10 rounded-full bg-indigo-600 flex items-center justify-center text-white font-bold text-xs overflow-hidden">
+              {user.profilePic ? <img src={user.profilePic.replace('http://', 'https://')} className="h-full w-full object-cover" alt="" /> : user.name?.charAt(0)}
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-bold text-slate-900 truncate">{user.name}</p>
@@ -212,144 +172,101 @@ const Dashboard = () => {
             </div>
           </div>
           <button onClick={handleLogout} className="w-full flex items-center gap-4 px-4 py-3 rounded-xl text-red-500 hover:bg-red-50 transition-all">
-            <LogOut size={20} />
-            <span className="text-sm font-medium">Logout</span>
+            <LogOut size={20} /><span className="text-sm font-medium">Logout</span>
           </button>
         </div>
       </aside>
 
-      {/* Main Content */}
-      <main className="flex-1 border-r border-slate-100 min-h-screen pb-24 xl:pb-0">
-        <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-md border-b border-slate-50 p-4 px-6 lg:px-8">
+      {/* Main Content Area */}
+      <main className="flex-1 flex flex-col min-w-0 h-full">
+        <header className="bg-white/80 backdrop-blur-md border-b border-slate-50 p-4 px-6 lg:px-8 z-20">
           <div className="flex justify-between items-center h-10">
             {!showMobileSearch ? (
               <>
                 <div className="flex flex-col">
-                  <h1 className="text-xl font-extrabold tracking-tight text-slate-900 leading-none">Home Feed</h1>
+                  <h1 className="text-xl font-extrabold tracking-tight text-slate-900">Home Feed</h1>
                   <p className="text-[10px] font-bold text-indigo-600 uppercase tracking-widest mt-1">
-                    {user.role === 'SuperAdmin' ? 'Global Scope' : user.department || user.faculty || 'General Updates'}
+                    {user.role === 'SuperAdmin' ? 'Global' : user.department || 'General'}
                   </p>
                 </div>
-                <div className="flex items-center gap-3">
-                  <button onClick={() => setShowMobileSearch(true)} className="lg:hidden p-2 text-slate-500"><Search size={20} /></button>
-                  <div 
-                    className="h-9 w-9 rounded-full bg-slate-100 border border-slate-200 overflow-hidden flex items-center justify-center text-indigo-600 shadow-sm cursor-pointer"
-                    onClick={() => navigate('/profile')}
-                  >
-                    {user.profilePic ? (
-                      <img src={user.profilePic.replace('http://', 'https://')} alt="Profile" className="h-full w-full object-cover" />
-                    ) : (
-                      <UserIcon size={18} />
-                    )}
+                <div className="flex items-center gap-3 lg:hidden">
+                  <button onClick={() => setShowMobileSearch(true)} className="p-2 text-slate-500"><Search size={20} /></button>
+                  <div className="h-9 w-9 rounded-full bg-slate-100 flex items-center justify-center overflow-hidden" onClick={() => navigate('/profile')}>
+                     {user.profilePic ? <img src={user.profilePic.replace('http://', 'https://')} className="h-full w-full object-cover" alt="" /> : <UserIcon size={18} />}
                   </div>
                 </div>
               </>
             ) : (
-              <div className="flex items-center gap-3 w-full animate-in slide-in-from-top-2">
-                <Search size={18} className="text-indigo-600 shrink-0" />
-                <input autoFocus type="text" placeholder="Search feed..." className="flex-1 bg-transparent outline-none text-sm font-medium" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
+              <div className="flex items-center gap-3 w-full">
+                <Search size={18} className="text-indigo-600" />
+                <input autoFocus type="text" placeholder="Search..." className="flex-1 bg-transparent outline-none text-sm font-medium" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
                 <button onClick={() => {setShowMobileSearch(false); setSearchQuery('');}}><X size={18} className="text-slate-400" /></button>
               </div>
             )}
           </div>
         </header>
 
-        <div className="divide-y divide-slate-50">
+        {/* Scrollable Feed Container */}
+        <div className="flex-1 overflow-y-auto pb-32 xl:pb-10">
           {loading ? (
-             <div className="flex justify-center py-20"><div className="w-8 h-8 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div></div>
+            <div className="flex justify-center py-20"><div className="w-8 h-8 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div></div>
           ) : filteredNotifications.length > 0 ? (
-              filteredNotifications.map((post) => (
+            <div className="divide-y divide-slate-50">
+              {filteredNotifications.map((post) => (
                 <PostCard 
-                  key={post._id} 
-                  id={post._id}
+                  key={post._id} id={post._id}
                   type={post.target?.department ? "Department" : post.isGlobal ? "Official" : "Faculty"} 
-                  author={post.createdByRole || "Admin"} 
-                  content={post.content} 
-                  time={post.createdAt} 
-                  files={post.files} 
-                  isNotification={true} 
-                  isBookmarked={post.isBookmarked}
-                  onBookmarkToggle={() => handleBookmarkToggle(post)}
-                  onDelete={() => {}}
-                  currentUser={user}
-                  postTarget={post.target}
+                  author={post.createdByRole || "Admin"} content={post.content} time={post.createdAt} 
+                  files={post.files} isNotification={true} isBookmarked={post.isBookmarked}
+                  onBookmarkToggle={() => handleBookmarkToggle(post)} currentUser={user} postTarget={post.target}
                 />
-              ))
+              ))}
+            </div>
           ) : (
             <div className="flex flex-col items-center justify-center py-32 px-6 text-center">
-              <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mb-6">
-                <Inbox size={32} className="text-slate-300" />
-              </div>
+              <Inbox size={48} className="text-slate-200 mb-4" />
               <h3 className="text-lg font-bold text-slate-900">No updates yet</h3>
-              <p className="text-sm text-slate-500 mt-2 max-w-xs">
-                Notifications for **{user.department || user.faculty || 'your area'}** will appear here.
-              </p>
             </div>
           )}
         </div>
       </main>
 
-      {/* Right Panel */}
-      <aside className="hidden lg:block w-80 p-6 sticky top-0 h-screen shrink-0">
-        <div className="bg-slate-50 rounded-2xl p-4 mb-6 border border-slate-100 flex items-center gap-2">
+      {/* Right Panel - Desktop */}
+      <aside className="hidden lg:block w-80 p-6 border-l border-slate-50 h-full overflow-y-auto">
+        <div className="bg-slate-50 rounded-2xl p-4 mb-6 flex items-center gap-2 border border-slate-100">
           <Search className="w-4 h-4 text-slate-400" />
-          <input type="text" placeholder="Filter feed..." className="bg-transparent outline-none text-sm w-full font-medium" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
+          <input type="text" placeholder="Filter..." className="bg-transparent outline-none text-sm w-full font-medium" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
         </div>
-        <div className="space-y-6">
-          <div className="p-5 bg-[#020617] rounded-3xl text-white shadow-xl">
-             <div className="flex items-center gap-2 mb-3 text-indigo-400">
-               <Globe size={16} />
-               <span className="text-[10px] font-black uppercase tracking-widest">Scoped Feed</span>
-            </div>
-            <p className="text-xs leading-relaxed font-bold">
-              Showing updates specifically for **{user.department || user.faculty || 'your institution'}**.
-            </p>
-          </div>
-          <div>
-            <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-1 mb-3">Resources</h3>
-            <div className="space-y-2">
-              <QuickLink icon={<BookOpen size={14} />} label="Student Handbook" />
-              <QuickLink icon={<LinkIcon size={14} />} label="LMS Portal" />
-              <QuickLink icon={<ShieldCheck size={14} />} label="Security Desk" />
-            </div>
-          </div>
+        <div className="p-5 bg-[#020617] rounded-3xl text-white shadow-xl mb-6">
+          <Globe size={16} className="text-indigo-400 mb-2" />
+          <p className="text-xs font-bold leading-relaxed">Showing updates for **{user.department || user.faculty || 'University'}**.</p>
+        </div>
+        <div className="space-y-2">
+          <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-1 mb-3">Resources</h3>
+          <QuickLink icon={<BookOpen size={14} />} label="Student Handbook" />
+          <QuickLink icon={<LinkIcon size={14} />} label="LMS Portal" />
         </div>
       </aside>
 
       {/* Floating Action Button */}
-  {/* Floating Action Button */}
-{canCreate && (
-  <button 
-    onClick={() => setIsFormOpen(true)}
-    className="fixed bottom-28 right-6 xl:bottom-10 xl:right-10 z-[110] bg-[#020617] text-white p-4 rounded-2xl shadow-2xl hover:scale-110 active:scale-95 transition-all flex items-center gap-3 group border border-white/10"
-  >
-    <Plus size={24} strokeWidth={3} />
-    <span className="max-w-0 overflow-hidden lg:group-hover:max-w-xs transition-all duration-500 font-bold text-sm whitespace-nowrap">
-      New Post
-    </span>
-  </button>
-)}
+      {canCreate && (
+        <button onClick={() => setIsFormOpen(true)} className="fixed bottom-28 right-6 xl:bottom-10 xl:right-10 z-[110] bg-[#020617] text-white p-4 rounded-2xl shadow-2xl hover:scale-105 active:scale-95 transition-all flex items-center gap-2">
+          <Plus size={24} strokeWidth={3} /><span className="hidden lg:block font-bold text-sm">New Post</span>
+        </button>
+      )}
 
-      {/* Mobile Navigation */}
-    {/* Mobile Navigation - Fixed at the very bottom with proper padding */}
-<div className="xl:hidden fixed bottom-0 left-0 right-0 p-4 pb-6 z-[100] flex justify-center pointer-events-none">
-  <div className="w-full max-w-md bg-[#020617]/95 backdrop-blur-xl border border-white/10 px-6 py-3 rounded-3xl flex justify-between items-center shadow-[0_20px_50px_rgba(0,0,0,0.3)] pointer-events-auto">
-    <MobileNavButton icon={<Home size={22} />} active={true} onClick={() => navigate('/dashboard')} />
-    <MobileNavButton icon={<Bell size={22} />} active={false} onClick={() => navigate('/announcements')} />
-    <MobileNavButton icon={<Bookmark size={22} />} active={false} onClick={() => navigate('/bookmarks')} />
-    <MobileNavButton icon={<Calendar size={22} />} active={false} onClick={() => navigate('/schedule')} />
-    <MobileNavButton icon={<UserIcon size={22} />} active={false} onClick={() => navigate('/profile')} />
-    <button onClick={handleLogout} className="p-2 text-red-400 active:scale-90 transition-transform">
-      <LogOut size={22} />
-    </button>
-  </div>
-</div>
-      <Form 
-        isOpen={isFormOpen} 
-        onClose={() => setIsFormOpen(false)} 
-        type="Notification" 
-        onSubmit={handleCreateNotification} 
-      />
+      {/* Mobile Nav - Fixed */}
+      <div className="xl:hidden fixed bottom-0 left-0 right-0 p-4 pb-8 bg-gradient-to-t from-white via-white/90 to-transparent z-[100] pointer-events-none">
+        <div className="max-w-md mx-auto bg-[#020617] border border-white/10 px-6 py-3 rounded-3xl flex justify-between items-center shadow-2xl pointer-events-auto">
+          <MobileNavButton icon={<Home size={22} />} active={true} onClick={() => navigate('/dashboard')} />
+          <MobileNavButton icon={<Bell size={22} />} active={false} onClick={() => navigate('/announcements')} />
+          <MobileNavButton icon={<Bookmark size={22} />} active={false} onClick={() => navigate('/bookmarks')} />
+          <MobileNavButton icon={<UserIcon size={22} />} active={false} onClick={() => navigate('/profile')} />
+          <button onClick={handleLogout} className="p-2 text-red-400"><LogOut size={22} /></button>
+        </div>
+      </div>
+
+      <Form isOpen={isFormOpen} onClose={() => setIsFormOpen(false)} type="Notification" onSubmit={fetchFeed} />
     </div>
   );
 };

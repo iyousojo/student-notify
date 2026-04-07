@@ -158,7 +158,6 @@ const OfficialAnnouncements = () => {
         </nav>
         <div className="mt-auto pt-6 border-t border-slate-50">
           <div className="flex items-center gap-3 p-2 mb-4">
-            {/* PROFILE PICTURE SYNC */}
             <div className="h-10 w-10 rounded-full bg-indigo-600 overflow-hidden flex items-center justify-center text-white font-bold text-xs shadow-sm">
               {user.profilePic ? (
                 <img src={user.profilePic} alt="Me" className="h-full w-full object-cover" />
@@ -243,7 +242,7 @@ const OfficialAnnouncements = () => {
         </div>
       </main>
 
-      {/* Right Sidebar */}
+      {/* Right Sidebar - Restore Search Box */}
       <aside className="hidden lg:block w-80 p-6 sticky top-0 h-screen shrink-0">
         <div className="bg-slate-50 rounded-2xl p-4 mb-6 border border-slate-100 flex items-center gap-2">
           <Search className="w-4 h-4 text-slate-400" />

@@ -2,13 +2,11 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Home, Bell, Bookmark, Calendar as CalendarIcon, LogOut, 
-  ChevronLeft, ChevronRight, Inbox, ArrowRight, Clock, User as UserIcon,
-  Globe
+  ChevronLeft, ChevronRight, Inbox, ArrowRight, Clock, User as UserIcon
 } from 'lucide-react';
 import axios from 'axios';
 import { NavButton, MobileNavButton } from '../../components/Navigation';
 
-// Centralized API instance
 const API = axios.create({
   baseURL: 'https://student-notification-system-1.onrender.com',
 });
@@ -30,12 +28,10 @@ const Schedule = () => {
   const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
   const handleLogout = useCallback(() => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
+    localStorage.clear();
     navigate('/login');
   }, [navigate]);
 
-  // Sync user profile from DB to ensure academic scope is accurate
   useEffect(() => {
     const syncUser = async () => {
       try {
@@ -74,7 +70,6 @@ const Schedule = () => {
     if (user) fetchAllData();
   }, [user, fetchAllData]);
 
-  // Optimization: Create a Set of date strings for O(1) lookup in the calendar grid
   const eventDateSet = useMemo(() => {
     return new Set(allEvents.map(item => new Date(item.createdAt || item.date).toDateString()));
   }, [allEvents]);
@@ -84,7 +79,6 @@ const Schedule = () => {
     return allEvents.filter(item => new Date(item.createdAt || item.date).toDateString() === selStr);
   }, [allEvents, selectedDate]);
 
-  // Calendar Grid Logic
   const daysInMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
   const firstDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1).getDay();
   const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
@@ -94,15 +88,15 @@ const Schedule = () => {
   const handleYearChange = (offset) => setCurrentDate(new Date(currentDate.getFullYear() + offset, currentDate.getMonth(), 1));
 
   if (!user) return (
-    <div className="min-h-screen flex items-center justify-center bg-white">
+    <div className="h-screen w-full flex items-center justify-center bg-white">
       <div className="w-8 h-8 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
     </div>
   );
 
   return (
-    <div className="min-h-screen bg-white flex selection:bg-indigo-100">
+    <div className="h-screen bg-white flex overflow-hidden selection:bg-indigo-100">
       {/* Sidebar - Desktop */}
-      <aside className="hidden xl:flex flex-col w-72 p-6 border-r border-slate-100 sticky top-0 h-screen shrink-0">
+      <aside className="hidden xl:flex flex-col w-72 p-6 border-r border-slate-100 h-full shrink-0">
         <div className="mb-10 px-4 flex items-center gap-3">
           <div className="h-9 w-9 bg-[#020617] rounded-xl flex items-center justify-center text-white font-bold shadow-lg">S</div>
           <span className="font-bold text-slate-900 tracking-tight">StudentNotify</span>
@@ -129,16 +123,16 @@ const Schedule = () => {
               <p className="text-[10px] text-slate-400 font-bold uppercase truncate">{user.department || user.role}</p>
             </div>
           </div>
-          <button onClick={handleLogout} className="w-full flex items-center gap-4 px-4 py-3 rounded-xl text-red-500 hover:bg-red-50 transition-all">
+          <button onClick={handleLogout} className="w-full flex items-center gap-4 px-4 py-3 rounded-xl text-red-500 hover:bg-red-50 transition-all text-left">
             <LogOut size={20} />
             <span className="text-sm font-medium">Logout</span>
           </button>
         </div>
       </aside>
 
-      {/* Main Content */}
-      <main className="flex-1 border-r border-slate-100 min-h-screen pb-24 xl:pb-0">
-        <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-md border-b border-slate-50 p-4 px-6 lg:px-8">
+      {/* Main Content Area */}
+      <main className="flex-1 flex flex-col min-w-0 h-full">
+        <header className="bg-white/80 backdrop-blur-md border-b border-slate-50 p-4 px-6 lg:px-8 z-20 shrink-0">
           <div className="flex justify-between items-center h-10">
             <div className="flex flex-col">
               <h1 className="text-xl font-extrabold tracking-tight text-slate-900 leading-none">Academic Schedule</h1>
@@ -153,7 +147,8 @@ const Schedule = () => {
           </div>
         </header>
 
-        <div className="p-4 lg:p-8">
+        {/* Scrollable Container */}
+        <div className="flex-1 overflow-y-auto p-4 lg:p-8 pb-32 xl:pb-10">
           <div className="flex gap-2 overflow-x-auto pb-4 no-scrollbar mb-6">
             {months.map((month, index) => (
               <button
@@ -171,6 +166,7 @@ const Schedule = () => {
           </div>
 
           <div className="grid lg:grid-cols-12 gap-8">
+            {/* Calendar Section */}
             <div className="lg:col-span-8 bg-slate-50 rounded-3xl p-6 border border-slate-100 h-fit">
               <div className="grid grid-cols-7 gap-2 lg:gap-4 mb-4">
                 {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => (
@@ -207,6 +203,7 @@ const Schedule = () => {
               </div>
             </div>
 
+            {/* Events Sidebar for selected date */}
             <div className="lg:col-span-4 space-y-4">
               <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-1 flex items-center gap-2">
                 <div className="w-1.5 h-1.5 rounded-full bg-indigo-600"></div>
@@ -234,7 +231,7 @@ const Schedule = () => {
                         <Clock size={12} className="text-slate-300" />
                       </div>
                       <h4 className="font-bold text-slate-800 text-sm leading-snug">
-                        {item.title || item.content.substring(0, 45) + "..."}
+                        {item.title || item.content?.substring(0, 45) + "..."}
                       </h4>
                       <div className="mt-3 flex items-center text-indigo-600 text-[11px] font-bold opacity-0 group-hover:opacity-100 transition-all">
                         View Details <ArrowRight size={12} className="ml-1" />
@@ -253,14 +250,18 @@ const Schedule = () => {
         </div>
       </main>
 
-      {/* Mobile Navigation */}
-      <div className="xl:hidden fixed bottom-6 left-1/2 -translate-x-1/2 w-[90%] max-w-md bg-[#020617]/90 backdrop-blur-xl border border-white/10 px-6 py-3 z-50 rounded-2xl flex justify-between items-center shadow-2xl">
-        <MobileNavButton icon={<Home />} active={false} onClick={() => navigate('/dashboard')} />
-        <MobileNavButton icon={<Bell />} active={false} onClick={() => navigate('/announcements')} />
-        <MobileNavButton icon={<Bookmark />} active={false} onClick={() => navigate('/bookmarks')} />
-        <MobileNavButton icon={<CalendarIcon />} active={true} onClick={() => navigate('/schedule')} />
-        <MobileNavButton icon={<UserIcon />} active={false} onClick={() => navigate('/profile')} />
-        <button onClick={handleLogout} className="p-2 text-red-400"><LogOut size={20} /></button>
+      {/* Mobile Navigation - Fixed */}
+      <div className="xl:hidden fixed bottom-0 left-0 right-0 p-4 pb-8 bg-gradient-to-t from-white via-white/90 to-transparent z-[100] pointer-events-none">
+        <div className="max-w-md mx-auto bg-[#020617] border border-white/10 px-6 py-3 rounded-3xl flex justify-between items-center shadow-[0_20px_50px_rgba(0,0,0,0.3)] pointer-events-auto">
+          <MobileNavButton icon={<Home size={22} />} active={false} onClick={() => navigate('/dashboard')} />
+          <MobileNavButton icon={<Bell size={22} />} active={false} onClick={() => navigate('/announcements')} />
+          <MobileNavButton icon={<Bookmark size={22} />} active={false} onClick={() => navigate('/bookmarks')} />
+          <MobileNavButton icon={<CalendarIcon size={22} />} active={true} onClick={() => navigate('/schedule')} />
+          <MobileNavButton icon={<UserIcon size={22} />} active={false} onClick={() => navigate('/profile')} />
+          <button onClick={handleLogout} className="p-2 text-red-400 active:scale-90 transition-transform">
+            <LogOut size={22} />
+          </button>
+        </div>
       </div>
     </div>
   );
