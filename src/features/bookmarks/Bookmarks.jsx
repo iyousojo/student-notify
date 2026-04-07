@@ -110,15 +110,19 @@ const Bookmarks = () => {
               <h1 className="text-xl font-extrabold text-slate-900 leading-none">Saved Items</h1>
               <p className="text-[10px] font-bold text-indigo-600 uppercase tracking-widest mt-1">Your Bookmarks</p>
             </div>
-            <div 
-              className="h-9 w-9 rounded-full bg-slate-100 border border-slate-200 overflow-hidden flex items-center justify-center text-indigo-600 shadow-sm cursor-pointer lg:hidden"
-              onClick={() => navigate('/profile')}
-            >
-              {user.profilePic ? (
-                <img src={user.profilePic.replace('http://', 'https://')} alt="Profile" className="h-full w-full object-cover" />
-              ) : (
-                <UserIcon size={18} />
-              )}
+
+            {/* Top Profile Trigger - Sync with Dashboard */}
+            <div className="flex items-center gap-3 lg:hidden">
+              <div 
+                className="h-9 w-9 rounded-full bg-slate-100 border border-slate-200 overflow-hidden flex items-center justify-center text-indigo-600 shadow-sm cursor-pointer"
+                onClick={() => navigate('/profile')}
+              >
+                {user.profilePic ? (
+                  <img src={user.profilePic.replace('http://', 'https://')} alt="Profile" className="h-full w-full object-cover" />
+                ) : (
+                  <UserIcon size={18} />
+                )}
+              </div>
             </div>
           </div>
         </header>

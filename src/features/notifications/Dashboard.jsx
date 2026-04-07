@@ -250,10 +250,16 @@ const Dashboard = () => {
 
       {/* Floating Action Button */}
       {canCreate && (
-        <button onClick={() => setIsFormOpen(true)} className="fixed bottom-28 right-6 xl:bottom-10 xl:right-10 z-[110] bg-[#020617] text-white p-4 rounded-2xl shadow-2xl hover:scale-105 active:scale-95 transition-all flex items-center gap-2">
-          <Plus size={24} strokeWidth={3} /><span className="hidden lg:block font-bold text-sm">New Post</span>
-        </button>
+      <button 
+                onClick={() => setIsFormOpen(true)}
+                className="fixed bottom-24 right-6 xl:bottom-10 xl:right-10 z-[60] bg-[#020617] text-white p-4 rounded-2xl shadow-2xl hover:scale-110 active:scale-95 transition-all flex items-center gap-3 group"
+              >
+                <Plus size={24} strokeWidth={3} />
+                <span className="max-w-0 overflow-hidden group-hover:max-w-xs transition-all duration-500 font-bold text-sm whitespace-nowrap">Create Post</span>
+              </button>
       )}
+
+      
 
       {/* Mobile Nav - Fixed */}
       <div className="xl:hidden fixed bottom-0 left-0 right-0 p-4 pb-8 bg-gradient-to-t from-white via-white/90 to-transparent z-[100] pointer-events-none">
