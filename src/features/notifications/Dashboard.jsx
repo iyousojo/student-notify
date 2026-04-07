@@ -317,26 +317,33 @@ const Dashboard = () => {
       </aside>
 
       {/* Floating Action Button */}
-      {canCreate && (
-        <button 
-          onClick={() => setIsFormOpen(true)}
-          className="fixed bottom-24 right-6 xl:bottom-10 xl:right-10 z-[60] bg-[#020617] text-white p-4 rounded-2xl shadow-2xl hover:scale-110 active:scale-95 transition-all flex items-center gap-3 group"
-        >
-          <Plus size={24} strokeWidth={3} />
-          <span className="max-w-0 overflow-hidden group-hover:max-w-xs transition-all duration-500 font-bold text-sm whitespace-nowrap">New Post</span>
-        </button>
-      )}
+  {/* Floating Action Button */}
+{canCreate && (
+  <button 
+    onClick={() => setIsFormOpen(true)}
+    className="fixed bottom-28 right-6 xl:bottom-10 xl:right-10 z-[110] bg-[#020617] text-white p-4 rounded-2xl shadow-2xl hover:scale-110 active:scale-95 transition-all flex items-center gap-3 group border border-white/10"
+  >
+    <Plus size={24} strokeWidth={3} />
+    <span className="max-w-0 overflow-hidden lg:group-hover:max-w-xs transition-all duration-500 font-bold text-sm whitespace-nowrap">
+      New Post
+    </span>
+  </button>
+)}
 
       {/* Mobile Navigation */}
-      <div className="xl:hidden fixed bottom-6 left-1/2 -translate-x-1/2 w-[90%] max-w-md bg-[#020617]/90 backdrop-blur-xl border border-white/10 px-6 py-3 z-50 rounded-2xl flex justify-between items-center shadow-2xl">
-        <MobileNavButton icon={<Home />} active={true} onClick={() => navigate('/dashboard')} />
-        <MobileNavButton icon={<Bell />} active={false} onClick={() => navigate('/announcements')} />
-        <MobileNavButton icon={<Bookmark />} active={false} onClick={() => navigate('/bookmarks')} />
-        <MobileNavButton icon={<Calendar />} active={false} onClick={() => navigate('/schedule')} />
-        <MobileNavButton icon={<UserIcon />} active={false} onClick={() => navigate('/profile')} />
-        <button onClick={handleLogout} className="p-2 text-red-400"><LogOut size={20} /></button>
-      </div>
-
+    {/* Mobile Navigation - Fixed at the very bottom with proper padding */}
+<div className="xl:hidden fixed bottom-0 left-0 right-0 p-4 pb-6 z-[100] flex justify-center pointer-events-none">
+  <div className="w-full max-w-md bg-[#020617]/95 backdrop-blur-xl border border-white/10 px-6 py-3 rounded-3xl flex justify-between items-center shadow-[0_20px_50px_rgba(0,0,0,0.3)] pointer-events-auto">
+    <MobileNavButton icon={<Home size={22} />} active={true} onClick={() => navigate('/dashboard')} />
+    <MobileNavButton icon={<Bell size={22} />} active={false} onClick={() => navigate('/announcements')} />
+    <MobileNavButton icon={<Bookmark size={22} />} active={false} onClick={() => navigate('/bookmarks')} />
+    <MobileNavButton icon={<Calendar size={22} />} active={false} onClick={() => navigate('/schedule')} />
+    <MobileNavButton icon={<UserIcon size={22} />} active={false} onClick={() => navigate('/profile')} />
+    <button onClick={handleLogout} className="p-2 text-red-400 active:scale-90 transition-transform">
+      <LogOut size={22} />
+    </button>
+  </div>
+</div>
       <Form 
         isOpen={isFormOpen} 
         onClose={() => setIsFormOpen(false)} 
