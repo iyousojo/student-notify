@@ -165,19 +165,17 @@ const Bookmarks = () => {
         </div>
       </main>
 
-      {/* Mobile Nav - Fixed at the bottom */}
-      <div className="xl:hidden fixed bottom-0 left-0 right-0 p-4 pb-8 bg-gradient-to-t from-white via-white/90 to-transparent z-[100] pointer-events-none">
-        <div className="max-w-md mx-auto bg-[#020617] border border-white/10 px-6 py-3 rounded-3xl flex justify-between items-center shadow-[0_20px_50px_rgba(0,0,0,0.3)] pointer-events-auto">
-          <MobileNavButton icon={<Home size={22} />} active={false} onClick={() => navigate('/dashboard')} />
-          <MobileNavButton icon={<Bell size={22} />} active={false} onClick={() => navigate('/announcements')} />
-          <MobileNavButton icon={<Bookmark size={22} />} active={true} onClick={() => navigate('/bookmarks')} />
-          <MobileNavButton icon={<Calendar size={22} />} active={false} onClick={() => navigate('/schedule')} />
-          <MobileNavButton icon={<UserIcon size={22} />} active={false} onClick={() => navigate('/profile')} />
-          <button onClick={handleLogout} className="p-2 text-red-400 active:scale-90 transition-transform">
-            <LogOut size={22} />
-          </button>
-        </div>
-      </div>
+      
+        {/* Mobile Nav - Fixed */}
+            <div className="xl:hidden fixed bottom-0 left-0 right-0 p-4 pb-8 bg-gradient-to-t from-white via-white/90 to-transparent z-[100] pointer-events-none">
+              <div className="max-w-md mx-auto bg-[#020617] border border-white/10 px-6 py-3 rounded-3xl flex justify-between items-center shadow-2xl pointer-events-auto">
+                <MobileNavButton icon={<Home size={22} />} active={true} onClick={() => navigate('/dashboard')} />
+                <MobileNavButton icon={<Bell size={22} />} active={false} onClick={() => navigate('/announcements')} />
+                <MobileNavButton icon={<Bookmark size={22} />} active={false} onClick={() => navigate('/bookmarks')} />
+                <MobileNavButton icon={<UserIcon size={22} />} active={false} onClick={() => navigate('/profile')} />
+                <button onClick={handleLogout} className="p-2 text-red-400"><LogOut size={22} /></button>
+              </div>
+            </div>
     </div>
   );
 };

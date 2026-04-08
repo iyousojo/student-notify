@@ -282,15 +282,17 @@ const OfficialAnnouncements = () => {
         </button>
       )}
 
-      {/* Mobile Navigation */}
-      <div className="xl:hidden fixed bottom-6 left-1/2 -translate-x-1/2 w-[90%] max-w-md bg-[#020617]/90 backdrop-blur-xl border border-white/10 px-6 py-3 z-50 rounded-2xl flex justify-between items-center shadow-2xl">
-        <MobileNavButton icon={<Home />} active={false} onClick={() => navigate('/dashboard')} />
-        <MobileNavButton icon={<Bell />} active={true} onClick={() => navigate('/announcements')} />
-        <MobileNavButton icon={<Bookmark />} active={false} onClick={() => navigate('/bookmarks')} />
-        <MobileNavButton icon={<Calendar />} active={false} onClick={() => navigate('/schedule')} />
-        <MobileNavButton icon={<UserIcon />} active={false} onClick={() => navigate('/profile')} />
-        <button onClick={handleLogout} className="p-2 text-red-400"><LogOut size={20} /></button>
-      </div>
+     
+       {/* Mobile Nav - Fixed */}
+           <div className="xl:hidden fixed bottom-0 left-0 right-0 p-4 pb-8 bg-gradient-to-t from-white via-white/90 to-transparent z-[100] pointer-events-none">
+             <div className="max-w-md mx-auto bg-[#020617] border border-white/10 px-6 py-3 rounded-3xl flex justify-between items-center shadow-2xl pointer-events-auto">
+               <MobileNavButton icon={<Home size={22} />} active={true} onClick={() => navigate('/dashboard')} />
+               <MobileNavButton icon={<Bell size={22} />} active={false} onClick={() => navigate('/announcements')} />
+               <MobileNavButton icon={<Bookmark size={22} />} active={false} onClick={() => navigate('/bookmarks')} />
+               <MobileNavButton icon={<UserIcon size={22} />} active={false} onClick={() => navigate('/profile')} />
+               <button onClick={handleLogout} className="p-2 text-red-400"><LogOut size={22} /></button>
+             </div>
+           </div>
 
       <Form 
         isOpen={isFormOpen} 
