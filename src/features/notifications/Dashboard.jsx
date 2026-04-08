@@ -268,6 +268,7 @@ const Dashboard = () => {
           <MobileNavButton icon={<Bell size={22} />} active={false} onClick={() => navigate('/announcements')} />
           <MobileNavButton icon={<Bookmark size={22} />} active={false} onClick={() => navigate('/bookmarks')} />
           <MobileNavButton icon={<UserIcon size={22} />} active={false} onClick={() => navigate('/profile')} />
+            <MobileNavButton icon={<Calendar />} label="Schedule" active={false} onClick={() => navigate('/schedule')} />
           <button onClick={handleLogout} className="p-2 text-red-400"><LogOut size={22} /></button>
         </div>
       </div>
