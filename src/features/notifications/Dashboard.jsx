@@ -23,6 +23,7 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false); // New state for post-submission feedback
   const [searchQuery, setSearchQuery] = useState('');
   const [showMobileSearch, setShowMobileSearch] = useState(false);
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -45,10 +46,10 @@ const Dashboard = () => {
     return false;
   }, []);
 
-  const fetchFeed = useCallback(async () => {
+  const fetchFeed = useCallback(async (showSilence = false) => {
     if (!user) return;
     try {
-      setLoading(true);
+      if (!showSilence) setLoading(true);
       const [notifRes, bookmarkRes] = await Promise.all([
         API.get(`/api/notifications`),
         API.get(`/api/bookmarks`)
@@ -71,8 +72,30 @@ const Dashboard = () => {
       if (err.response?.status === 401) handleLogout();
     } finally {
       setLoading(false);
+      setIsRefreshing(false);
     }
   }, [user, filterNotification, handleLogout]);
+
+  // FIXED: Handle actual POST logic here
+  const handleCreatePost = async (formData, activeType) => {
+    try {
+      setIsRefreshing(true);
+      const endpoint = activeType === 'Announcement' ? '/api/announcements' : '/api/notifications';
+      
+      await API.post(endpoint, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+
+      // Refresh the feed immediately after success
+      await fetchFeed(true); 
+      setIsFormOpen(false);
+    } catch (err) {
+      console.error("Submission error:", err);
+      alert(err.response?.data?.message || "Failed to publish post. Please try again.");
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
 
   const pollUpdates = useCallback(async () => {
     if (!user) return;
@@ -135,9 +158,11 @@ const Dashboard = () => {
   };
 
   if (!user) {
-    return <div className="h-screen w-full flex items-center justify-center bg-white">
-      <div className="w-10 h-10 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
-    </div>;
+    return (
+      <div className="h-screen w-full flex items-center justify-center bg-white">
+        <div className="w-10 h-10 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    );
   }
 
   const canCreate = ["FacultyAdmin", "DepartmentAdmin", "SuperAdmin"].includes(user.role);
@@ -184,7 +209,10 @@ const Dashboard = () => {
             {!showMobileSearch ? (
               <>
                 <div className="flex flex-col">
-                  <h1 className="text-xl font-extrabold tracking-tight text-slate-900">Home Feed</h1>
+                  <div className="flex items-center gap-2">
+                    <h1 className="text-xl font-extrabold tracking-tight text-slate-900">Home Feed</h1>
+                    {isRefreshing && <div className="w-3 h-3 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>}
+                  </div>
                   <p className="text-[10px] font-bold text-indigo-600 uppercase tracking-widest mt-1">
                     {user.role === 'SuperAdmin' ? 'Global' : user.department || 'General'}
                   </p>
@@ -219,6 +247,7 @@ const Dashboard = () => {
                   author={post.createdByRole || "Admin"} content={post.content} time={post.createdAt} 
                   files={post.files} isNotification={true} isBookmarked={post.isBookmarked}
                   onBookmarkToggle={() => handleBookmarkToggle(post)} currentUser={user} postTarget={post.target}
+                  onDelete={fetchFeed} // Refetch after delete
                 />
               ))}
             </div>
@@ -259,8 +288,6 @@ const Dashboard = () => {
               </button>
       )}
 
-      
-
       {/* Mobile Nav - Fixed */}
       <div className="xl:hidden fixed bottom-0 left-0 right-0 p-4 pb-8 bg-gradient-to-t from-white via-white/90 to-transparent z-[100] pointer-events-none">
         <div className="max-w-md mx-auto bg-[#020617] border border-white/10 px-6 py-3 rounded-3xl flex justify-between items-center shadow-2xl pointer-events-auto">
@@ -268,12 +295,17 @@ const Dashboard = () => {
           <MobileNavButton icon={<Bell size={22} />} active={false} onClick={() => navigate('/announcements')} />
           <MobileNavButton icon={<Bookmark size={22} />} active={false} onClick={() => navigate('/bookmarks')} />
           <MobileNavButton icon={<UserIcon size={22} />} active={false} onClick={() => navigate('/profile')} />
-            <MobileNavButton icon={<Calendar />} label="Schedule" active={false} onClick={() => navigate('/schedule')} />
+          <MobileNavButton icon={<Calendar size={22} />} active={false} onClick={() => navigate('/schedule')} />
           <button onClick={handleLogout} className="p-2 text-red-400"><LogOut size={22} /></button>
         </div>
       </div>
 
-      <Form isOpen={isFormOpen} onClose={() => setIsFormOpen(false)} type="Notification" onSubmit={fetchFeed} />
+      <Form 
+        isOpen={isFormOpen} 
+        onClose={() => setIsFormOpen(false)} 
+        type="Notification" 
+        onSubmit={handleCreatePost} // FIXED: Passed the network handler
+      />
     </div>
   );
 };
