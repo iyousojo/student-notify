@@ -1,95 +1,94 @@
-🎓 Student Notification System (SNS)
-An end-to-end communication platform designed to bridge the gap between university administration and students. This system provides real-time updates, official announcements, and academic scheduling in a streamlined, cross-platform experience.
+# 🔔 Student Notification Frontend
 
-🚀 Overview
-This project consists of three core modules:
+A modern React-based web dashboard for university students and admins to access real-time notifications, official announcements, bookmarks, academic schedules, and profile management. Built with Vite for fast development and Tailwind CSS for responsive design. Deployed Vercel-ready.
 
-Web Dashboard: A high-performance React application for students to view feeds and admins to manage content.
+## 🚀 Features
 
+- **Authentication**: Complete flow with Login, Register, Forgot Password, Reset Password, Email Verification.
+- **Dashboard**: Real-time notifications with bookmark checks.
+- **Official Announcements**: Filtered feeds with bookmarking support.
+- **Bookmarks**: Manage saved notifications and announcements.
+- **Academic Schedule**: Calendar view for deadlines and events.
+- **User Profile**: Edit profile details, upload avatar (syncs across app via localStorage).
+- **Role-Based Access**: Protected/Public routes, Auth/User Contexts for state management.
+- **Responsive Navigation**: Desktop/Mobile nav with QuickLinks.
+- **Performance**: Axios API services, optimized components (PostCard, Form).
 
-Backend API: A centralized Node.js server managing authentication, role-based access control, and notification polling.
+## 🛠️ Tech Stack
 
-✨ Key Features
-Real-time Feed: Official updates filtered by Faculty, Department, or Global relevance.
+- **React 18** + **Vite** (build tool)
+- **Tailwind CSS** + **Lucide React** (icons)
+- **React Router DOM** (routing)
+- **Axios** (API calls)
+- **React Context** (AuthContext, UserContext for global state)
+- **Vercel** (deployment)
 
-Role-Based Access (RBAC): Tiered permissions for SuperAdmin, FacultyAdmin, and DepartmentAdmin.
+## 📦 Quick Start (Frontend Only)
 
-Smart Scheduling: An integrated academic calendar to track deadlines and events.
+1. **Clone/Navigate**:
+   ```
+   cd c:/student-notification-frontend
+   ```
 
-Bookmarking: Save important notifications for offline-style quick access.
+2. **Install Dependencies**:
+   ```
+   npm install
+   ```
 
+3. **Run Development Server**:
+   ```
+   npm run dev
+   ```
+   Open http://localhost:5173 (or shown port).
 
-Optimized Performance: Uses Upstash Redis for fast data management and polling logic to ensure updates are seen instantly.
+4. **Build for Production**:
+   ```
+   npm run build
+   ```
 
-🛠️ Tech Stack
-Frontend (Web)
-React 18 (Vite)
+## 🌐 Routes
 
-Tailwind CSS (Styling)
+| Path | Description | Access |
+|------|-------------|--------|
+| `/` | Landing/Redirect to Login | Public |
+| `/login` | User Login | Public |
+| `/register` | User Signup | Public |
+| `/forgot-password` | Password Recovery | Public |
+| `/reset-password` | Password Reset (token) | Public |
+| `/verify-email` | Email Verification | Public |
+| `/dashboard` | Main Notifications Feed | Protected |
+| `/announcements` | Official Announcements | Protected |
+| `/bookmarks` | Saved Items | Protected |
+| `/schedule` | Academic Calendar | Protected |
+| `/profile` | Edit Profile | Protected |
 
-Lucide React (Iconography)
+## 🚀 Deployment (Vercel)
 
-Axios (API Communication)
+1. Install Vercel CLI: `npm i -g vercel`
+2. Login: `vercel login`
+3. Deploy: `vercel --prod`
+   - Config uses `vercel.json` (rewrites, headers).
 
-Mobile
-React Native & Expo
+**Live Demo**: [Update with your Vercel URL after deploy]
 
-NativeWind (Tailwind for Mobile)
+## 🔌 API Integration
 
-Backend & Database
-Node.js & Express
+Assumes external backend API (e.g., Node.js/Express/MongoDB):
+- Update base URLs in `src/services/*.js` (notificationService.js, announcementService.js).
+- Auth tokens auto-managed via AuthContext.
 
-MongoDB (Primary Database)
+## 🤝 Contributing
 
-Upstash Redis (Caching/State)
+1. Fork the repo.
+2. Create branch: `git checkout -b feature/your-feature`.
+3. Commit: `git commit -m "feat: add your feature"`.
+4. Push/PR: `git push origin feature/your-feature`.
 
-Cloudinary (Profile Picture & File Storage)
+## 📄 License
 
-📦 Installation & Setup
-1. Clone the Repository
-Bash
-git clone https://github.com/iyousojo/student-notify.git
-cd student-notification-system
-2. Backend Setup
-Bash
-cd backend
-npm install
-# Create a .env file and add your MONGO_URI, JWT_SECRET, and Cloudinary keys
-npm start
-3. Frontend Setup
-Bash
-cd frontend
-npm install
-npm run dev
-4. Mobile Setup
-Bash
-cd mobile
-npm install
-npx expo start
-🌐 Deployment
-Backend: Hosted on Render
+MIT License - See [LICENSE](LICENSE) (or add if missing).
 
-Frontend: Deployed via [GitHub Pages / Vercel]
+---
 
-API Base URL: https://student-notification-system-1.onrender.com
+**Built for seamless student-admin communication. Contributions welcome!** 👨‍🎓👩‍🎓
 
-🔒 Environment Variables
-To run this project, you will need to add the following environment variables to your .env file:
-
-PORT, MONGODB_URI, JWT_SECRET, CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET, PAYSTACK_SECRET_KEY
-
-🤝 Contributing
-Fork the Project
-
-Create your Feature Branch (git checkout -b feature/AmazingFeature)
-
-Commit your Changes (git commit -m 'Add some AmazingFeature')
-
-Push to the Branch (git push origin feature/AmazingFeature)
-
-Open a Pull Request
-
-📄 License
-Distributed under the MIT License. See LICENSE for more information.
-
-Built with ❤️ by [solomon johbull Iyoubhebhe]
